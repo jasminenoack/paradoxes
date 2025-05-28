@@ -31,12 +31,27 @@ class Stander(BaseAgent):
             return _select_random_door(observation)
         return _stay_door(observation)
 
-class Switcher(BaseAgent):
+class AlwaysSwitch(BaseAgent):
     def act(self, observation: State) -> ActionSetup:
         if not observation.selected_door:
             return _select_random_door(observation)
         return _switch_door(observation)
 
+class FirstSwitcher(BaseAgent):
+    def act(self, observation: State) -> ActionSetup:
+        if not observation.selected_door:
+            return _select_random_door(observation)
+        if len(observation.open_doors) > 1:
+            return _stay_door(observation)
+        return _switch_door(observation)
+
+class SmartSwitcher(BaseAgent):
+    def act(self, observation: State) -> ActionSetup:
+        if not observation.selected_door:
+            return _select_random_door(observation)
+        if len(observation.available_doors) > 2:
+            return _stay_door(observation)
+        return _switch_door(observation)
 
 class Random(BaseAgent):
     def act(self, observation: State) -> ActionSetup:

@@ -91,8 +91,8 @@ class Monty:
             door for door in self.doors
             if not door.is_open and door != self.selected_door
         ]
-        if len(unopened_doors) != 1:
-            raise ValueError("Cannot switch doors when more than one unopened door remains")
+        if len(unopened_doors) < 1:
+            raise ValueError("Cannot switch doors when less than one unopened door remains")
         self.selected_door = self.rng.choice(unopened_doors)
         self.last_action = ActionType.USER_ACTION
 
