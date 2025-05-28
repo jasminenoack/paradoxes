@@ -93,7 +93,7 @@ class Monty:
         ]
         if len(unopened_doors) != 1:
             raise ValueError("Cannot switch doors when more than one unopened door remains")
-        self.selected_door = unopened_doors[0]
+        self.selected_door = self.rng.choice(unopened_doors)
         self.last_action = ActionType.USER_ACTION
 
     def stand(self):
