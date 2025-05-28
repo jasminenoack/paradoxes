@@ -13,11 +13,30 @@ class Door:
     index: int
     is_open: bool = False
 
-@dataclass
+    def __hash__(self):
+        return f"{self.index}_{self.is_open}".__hash__()
+
+@dataclass(frozen=True)
 class State:
-    available_doors: list[Door]
+    available_doors: tuple[Door,...]
     selected_door: Door | None
-    open_doors: list[Door]
+    open_doors: tuple[Door,...]
+
+class Action(Enum):
+    STAY = "stay"
+    SWITCH = "switch"
+    CHOOSE = "select"
+
+@dataclass
+class StepResult:
+    action: Action
+    score_delta: int
+
+
+@dataclass
+class Result:
+    won: bool
+    score: int = 0
 
 
 class Monty:
@@ -40,7 +59,14 @@ class Monty:
         self._set_winning_door()
         self.last_action: ActionType | None = None
 
-    def select_door(self, door_index: int):
+    def _build_step_result(self, action: Action) -> StepResult:
+        delta = 100 if self.done() and self.has_won() else 0
+        return StepResult(
+            action=action,
+            score_delta=delta
+        )
+
+    def select_door(self, door_index: int) -> StepResult:
         if door_index < 0 or door_index >= self.door_count:
             raise ValueError("Invalid door index")
         if self.doors[door_index].is_open:
@@ -49,6 +75,7 @@ class Monty:
             raise ValueError("Cannot select a door after a user action")
         self.selected_door = self.doors[door_index]
         self.last_action = ActionType.USER_ACTION
+        return self._build_step_result(Action.CHOOSE)
 
     def host_opens_door(self):
         if not self.selected_door:
@@ -84,7 +111,7 @@ class Monty:
         user_acted_last = self.last_action == ActionType.USER_ACTION
         return two_doors_left and user_acted_last
 
-    def switch_door(self):
+    def switch_door(self) -> StepResult:
         if not self.selected_door:
             raise ValueError("No door selected")
         unopened_doors = [
@@ -95,13 +122,15 @@ class Monty:
             raise ValueError("Cannot switch doors when less than one unopened door remains")
         self.selected_door = self.rng.choice(unopened_doors)
         self.last_action = ActionType.USER_ACTION
+        return self._build_step_result(Action.SWITCH)
 
-    def stand(self):
+    def stand(self) -> StepResult:
         if not self.selected_door:
             raise ValueError("No door selected")
         if self.last_action == ActionType.USER_ACTION:
             raise ValueError("Cannot stand after a user action")
         self.last_action = ActionType.USER_ACTION
+        return self._build_step_result(Action.STAY)
 
     def get_state(self) -> State:
         available_doors = [
@@ -111,7 +140,17 @@ class Monty:
             door for door in self.doors if door.is_open
         ]
         return State(
-            available_doors=available_doors,
+            available_doors=tuple(available_doors),
             selected_door=self.selected_door,
-            open_doors=open_doors
+            open_doors=tuple(open_doors)
         )
+
+    def get_result(self) -> Result:
+        if not self.done():
+            raise ValueError("Game not done")
+        score = 0
+        if self.has_won():
+            score = 100
+        else:
+            score = 0
+        return Result(won=self.has_won(), score=score)

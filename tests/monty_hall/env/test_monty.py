@@ -1,5 +1,5 @@
 import random
-from monty_hall.env.monty import Monty, ActionType, State
+from monty_hall.env.monty import Monty, ActionType, State, StepResult, Result, Action
 
 class TestInit:
     def test_creates_doors(self):
@@ -38,11 +38,15 @@ class TestSelectDoor:
     def test_selects_door(self):
         rng = random.Random(42)
         monty = Monty(rng=rng)
-        monty.select_door(1)
+        result = monty.select_door(1)
         assert monty.selected_door
         assert monty.selected_door == monty.doors[1]
         assert not monty.selected_door.is_open
         assert monty.last_action == ActionType.USER_ACTION
+        assert result == StepResult(
+            action=Action.CHOOSE,
+            score_delta=0
+        )
 
     def test_selects_door_twice(self):
         rng = random.Random(42)
@@ -283,11 +287,15 @@ class SwitchDoor:
         monty.select_door(0)
         monty.host_opens_door()
         original_selected_door = monty.selected_door
-        monty.switch_door()
+        result = monty.switch_door()
         assert monty.selected_door != original_selected_door
         assert monty.selected_door
         assert not monty.selected_door.is_open
         assert monty.last_action == ActionType.USER_ACTION
+        assert result == StepResult(
+            action=Action.SWITCH,
+            score_delta=100
+        )
 
     def test_fails_if_no_door_selected(self):
         rng = random.Random(42)
@@ -306,9 +314,13 @@ class TestStand:
         monty.select_door(0)
         monty.host_opens_door()
         original_selected_door = monty.selected_door
-        monty.stand()
+        result = monty.stand()
         assert monty.selected_door == original_selected_door
         assert monty.last_action == ActionType.USER_ACTION
+        assert result == StepResult(
+            action=Action.STAY,
+            score_delta=0
+        )
 
     def test_fails_if_no_door_selected(self):
         rng = random.Random(42)
@@ -327,9 +339,9 @@ class TestGetState:
         monty = Monty(rng=rng)
         state = monty.get_state()
         assert state == State(
-            available_doors=monty.doors,
+            available_doors=tuple(monty.doors),
             selected_door=None,
-            open_doors=[]
+            open_doors=()
         )
 
     def test_returns_state_after_selecting_door(self):
@@ -338,9 +350,9 @@ class TestGetState:
         monty.select_door(0)
         state = monty.get_state()
         assert state == State(
-            available_doors=monty.doors,
+            available_doors=tuple(monty.doors),
             selected_door=monty.selected_door,
-            open_doors=[]
+            open_doors=()
         )
 
     def test_returns_state_after_host_opens_door(self):
@@ -350,7 +362,41 @@ class TestGetState:
         monty.host_opens_door()
         state = monty.get_state()
         assert state == State(
-            available_doors=[monty.doors[1], monty.doors[2]],
+            available_doors=(monty.doors[1], monty.doors[2]),
             selected_door=monty.selected_door,
-            open_doors=[monty.doors[0]]
+            open_doors=(monty.doors[0], )
         )
+
+class TestGetResult:
+    def test_returns_result_after_game(self):
+        rng = random.Random(42)
+        monty = Monty(rng=rng)
+        monty.select_door(2)
+        monty.host_opens_door()
+        monty.select_door(2)
+        result = monty.get_result()
+        assert result == Result(
+            won=True,
+            score=100
+        )
+
+    def test_returns_result_after_losing_game(self):
+        rng = random.Random(42)
+        monty = Monty(rng=rng)
+        monty.select_door(0)
+        monty.host_opens_door()
+        monty.select_door(0)
+        result = monty.get_result()
+        assert result == Result(
+            won=False
+        )
+
+    def test_fails_if_game_not_done(self):
+        rng = random.Random(42)
+        monty = Monty(rng=rng)
+        try:
+            monty.get_result()
+        except ValueError as e:
+            assert str(e) == "Game not done"
+        else:
+            assert False, "Expected ValueError not raised"
